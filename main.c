@@ -6,9 +6,13 @@
 #include <sys/mount.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
 
+// global variable to use pipe, so the child and the parent can communicate
 int fd[2];
 
+// the child function
 int child_fn (void *arg){
     
     // listen to the pipe, waiting from the parent signal
@@ -18,11 +22,39 @@ int child_fn (void *arg){
 
     sethostname("container", 9);
     mount(NULL, "/", NULL, MS_REC |MS_PRIVATE, NULL);
+
+    mount("./rootfs", "./rootfs", "bind", MS_BIND | MS_REC, NULL);
+
+    mkdir("./rootfs/oldroot", 0777);
+
+    syscall(SYS_pivot_root, "./rootfs", "./rootfs/oldroot");
+
+    chdir("/");
+
+    mount("proc", "/proc", "proc", 0, NULL);
+
+    umount2("oldroot", MNT_DETACH);
+
+    rmdir("oldroot");
     
-    printf("Phase 1 complete, ran the child process\n");
-    return 0;
+
+    char *const argv[] = {"/bin/sh", NULL};
+    
+    char *const envp[] = {
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/bin:usr/bin",
+        "TERM=xterm-256color",
+        "HOME=/root",
+        NULL 
+    };
+    
+    execve("/bin/sh", argv, envp);
+
+    perror("execv failed");
+    return 1;
+
 }
 
+// function to write rules to the process, in the filesystem
 void write_rule (const char *path, const char *value){
     FILE *file;
 
@@ -39,7 +71,6 @@ void write_rule (const char *path, const char *value){
 
 }
 
-
 #define STACK_SIZE (1024 * 1024)
 
 
@@ -47,14 +78,14 @@ int main (){
     
     char path[100], buf[1];
 
+    // error handling
     if (pipe(fd) == -1){
         perror("Error");
         exit(1);
      
     }
 
-    printf ("Phase 0 complete, pipe is working\n");
-
+    // allocate the memory to the clone
     char *stack = malloc(STACK_SIZE);
     char *stack_top = stack + STACK_SIZE;
 
@@ -66,6 +97,7 @@ int main (){
         exit(1);
     }
 
+    // stop listening to the pipe
     close(fd[0]);
 
     // write rules to the filesystem
@@ -83,7 +115,5 @@ int main (){
 
     // wait the child wake up
     waitpid(child_pid, NULL, 0);
-
-    printf("Phase 2 complete, parent exiting\n");   
 
 }

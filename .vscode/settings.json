@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        ".gitignore": "c",
+        "mount.h": "c"
+    }
+}

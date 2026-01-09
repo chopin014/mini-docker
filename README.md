@@ -17,7 +17,7 @@ A minimal container runtime written in C that demonstrates how Docker works unde
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/chopin014/mini-docker.git](https://github.com/chopin014/mini-docker.git)
+    git clone https://github.com/chopin014/mini-docker.git
     cd mini-docker
     ```
 
